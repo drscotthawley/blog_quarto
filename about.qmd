@@ -1,0 +1,19 @@
+---
+title: "About"
+image: profile.jpg
+about:
+  template: jolla
+  links:
+    - icon: twitter
+      text: Twitter
+      href: https://twitter.com/drscotthawley
+    - icon: linkedin
+      text: LinkedIn
+      href: https://www.linkedin.com/in/drscotthawley/
+    - icon: github
+      text: Github
+      href: https://github.com/drscotthawley
+
+---
+
+About this blog

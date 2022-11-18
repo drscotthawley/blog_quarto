@@ -1,0 +1,426 @@
+<section class="whole">
+<b>Demo Instructions:</b><br>
+For the Input (blue) or Filter (purple), draw signals with your mouse
+or choose presets from the dropdown menus.<br>
+The "R" color bar on the right shows the correlation strength.<br>
+The bottom graph shows the filtered Output (red) which is (like) the convolution
+of the Input and Filter.* <br>
+<br>
+<label for="signals1">Choose Input signal:</label>
+<select name="signals1" id="signals1" onchange="setInput()">
+  <option value="sine">Sine wave</option>
+  <option value="noisySine">Noisy sine</option>
+  <option value="1_3" selected>1st & 3rd harmonics</option>
+  <option value="1_3_5">Harmonics: 1,3,5</option>
+  <option value="square">Square wave</option>
+  <option value="triangle">Triangle wave</option>
+  <option value="noise">Noise</option>
+  <option value="custom">Custom (draw)</option>
+</select>
+&nbsp;&nbsp;<label for="signals2">Choose Filter signal:</label>
+<select name="signals2" id="signals2"  onchange="setFilter()">
+  <option value="sine">Sine</option>
+  <option value="1_3">1st & 3rd harmonics</option>
+  <option value="spike" selected>Spike (identity)</option>
+  <option value="sinc">Low Pass Filter (LPF)</option>
+  <option value="hpf">High Pass Filter (HPF)</option>
+  <option value="custom">Custom (draw)</option>
+
+</select> &nbsp;&nbsp;<b>R</b> <br>
+<canvas id="canv1" width="285" height="180"></canvas>
+<canvas id="canv2" width="285" height="180"></canvas>
+<canvas id="canvBar" width="30" height="180"></canvas><br>
+<div style="position:relative;">
+    <canvas id="canvTrans" width="285" height="180"></canvas>
+    <label                           id="autoscaleLabel"   style="position:absolute;left:30%;top:5%;font-family:Arial;font-size:14px;"
+    >Autoscale<input type="checkbox" id="autoscaleBox"   onclick="clickedBox()" style="vertical-align:middle;" value=true />
+    </label>
+    <label style="position:absolute;left:45%;top:5%;font-family:Arial;font-size:14px;">
+      (If Output goes off-screen, press "Autoscale")<br><br>
+      <b>Suggested Exercises:</b>
+      <ul class="exer">
+          <li style="font-size: inherit;">Set or draw Input &amp; Filter (nearly) the same, observe R.</li>
+          <li style="font-size: inherit;">Set Input to Noisy Sine, Filter to LPF or HPF</li>
+          <li style="font-size: inherit;">Play around and see what you can learn!</li>
+      </ul>
+    </label>
+</div>
+*Technically it's the cross-correlation, which is the convolution up to a minus sign.
+</section>
+<style>
+  canvas {  border: 1px solid black;  }
+
+  .whole { width: 660px; }
+
+  .exer {
+      padding-left: 15;
+      margin-top: 0px;
+  }​
+
+</style>
+<script  type="text/javascript">
+
+  //---------- Set Global Variables ------------------------------------
+  let isDrawing = false;    // When true, moving the mouse draws on the canvas
+  let x = 0, x2 = 0;
+  let y = 0, y2 = 0;
+
+  const canv1 = document.getElementById('canv1');
+  const ctx1 = canv1.getContext('2d');
+
+  const canv2 = document.getElementById('canv2');
+  const ctx2 = canv2.getContext('2d');
+
+  const canvBar = document.getElementById('canvBar');
+  const ctxBar = canvBar.getContext('2d');
+
+  const canvTrans = document.getElementById('canvTrans');
+  const ctxTrans = canvTrans.getContext('2d');
+
+  ctx1.strokeStyle = "blue";
+  ctx2.strokeStyle = "purple";
+  ctxTrans.strokeStyle = "red";
+  ctxBar.fillStyle="green";
+
+  const w = canv1.width, h = canv1.height;
+  const barW = canvBar.width;
+  const maxX = w, maxY = h, midY = h / 2;
+  var signal1 = Array(w).fill(0);
+  var signal2 = Array(w).fill(0);
+  var signalTrans = Array(w).fill(0);
+  var autoscale = false;
+  const f1 = 2*Math.PI/(signal1.length/2);    // base frequency of signals
+  //------------------- Finished Setting Globals -----------
+
+  //------ Initialize the GUI
+  setInput();
+  setFilter();
+  plotCorr();
+  plotTrans();
+
+
+  // --------- Event listeners --------------------------
+
+  canv1.addEventListener('mousedown',  e => { startDraw1(getXY(e, false)) });
+  canv1.addEventListener('touchstart', e => { startDraw1(getXY(e, true )) });
+
+  canv1.addEventListener('mousemove', e => {
+    duringDraw1(getXY(e, false), ctx1, signal1, "Input") });
+  canv1.addEventListener('touchmove', e => {
+    duringDraw1(getXY(e, true),  ctx1, signal1, "Input"); });
+
+
+  canv2.addEventListener('mousedown',  e => { startDraw2(getXY(e, false)) });
+  canv2.addEventListener('touchstart', e => { startDraw2(getXY(e, true )) });
+
+  canv2.addEventListener('mousemove', e => {
+    duringDraw2(getXY(e, false), ctx2, signal2, "Filter") });
+  canv2.addEventListener('touchmove', e => {
+    duringDraw2(getXY(e, true),  ctx2, signal2, "Filter") });
+
+
+  window.addEventListener('mouseup',  e => { finishSignal() });
+  window.addEventListener('touchend', e => { finishSignal() }); // do NOT call e.preventDefault for touchend
+
+
+  //------------ Function definitions beyond this point ---------
+
+  function getXY(e, touch) {  // find coordinates of event
+    if (touch) {
+      e.preventDefault();     // not part of getting XY but we want to call this anyway for touches
+      var bcr = e.target.getBoundingClientRect();
+      return [Math.round(e.targetTouches[0].clientX - bcr.x), Math.round(e.targetTouches[0].clientY - bcr.y)];
+    } else {
+      return [e.offsetX, e.offsetY];
+    }
+  }
+
+  function startDraw1(xy) {
+     [x, y] = xy;
+     isDrawing = true;
+     document.getElementById("signals1").value = "custom";
+  }
+  function duringDraw1(xy, ctx, signal, name) {
+    if (isDrawing === true) {
+      [newX, newY] = xy;
+      if ((newX >= 0) && (newX < w)) {
+        signal[newX] = -2*(newY - midY)/maxY;
+        drawLine(ctx, signal, x, y, newX, newY, name);
+        x = newX,  y = newY;
+      }
+    }
+  }
+  function startDraw2(xy) {
+     [x2, y2] = xy;
+     isDrawing = true;
+     document.getElementById("signals2").value = "custom";
+  }
+  function duringDraw2(xy, ctx, signal, name) {
+    if (isDrawing === true) {
+      [newX, newY] = xy;
+      if ((newX >= 0) && (newX < w)) {
+        signal[newX] = -2*(newY - midY)/maxY; // map to [-1,1]
+        drawLine(ctx, signal, x2, y2, newX, newY, name);
+        x2 = newX,  y2 = newY;
+      }
+    }
+  }
+
+  function finishSignal() {   // once one of the signals has been drawn
+    if (isDrawing === true) {
+      x = 0,y = 0;
+      isDrawing = false;
+    }
+    plotCorr();
+    plotTrans();
+  }
+
+  // Autoscale box clicked
+  function clickedBox() {
+    autoscale = !autoscale;
+    plotTrans();
+  }
+
+  function assignSignal(option, signal) {
+    switch(option) {
+      case "sine":
+          for (i=0; i<w; i++) { signal[i] = 0.5*Math.sin(i*f1) }
+          break;
+      case "square":
+          for (i=0; i<w; i++) { signal[i] = 0.5*Math.sign(Math.sin(i*f1)) }
+          break;
+      case "triangle":
+          m = Math.PI/f1;
+          for (i=0; i<w; i++) { signal[i] = (m - Math.abs((i+m/2) % (2*m) - m))/m-0.5; }
+          break;
+      case "1_3":
+          for (i=0; i<w; i++) { signal[i] = 0.5*Math.sin(i*f1)+0.4*Math.cos(i*3*f1) }
+          break;
+      case "1_3_5":
+          for (i=0; i<w; i++) {
+            signal[i] = 0.5*Math.sin(i*f1)+0.4*Math.cos(i*3*f1)+0.4*Math.sin(i*5*f1) // start with a sine wave
+          }
+          break;
+      case "noise":
+          for (i=0; i<w; i++) { signal[i] = 0.7*(2*Math.random()-1) }
+          break;
+      case "noisySine":
+          for (i=0; i<w; i++) {
+            signal[i] = 0.5*Math.sin(i*f1) + 0.3*(2*Math.random()-1); // start with a sine wave
+          }
+          break;
+      case "spike":
+          for (i=0; i<w; i++) {
+            if (i == Math.round(w/2)) { signal[i] = 1.0 }
+            else {  signal[i] = 0.0; }
+          }
+          break;
+      case "sinc":
+          for (i=0; i<w; i++) {
+              xi = (i - w/2)/7;  // 7 works well
+              signal[i] = Math.sin(xi) / xi / 21.5;
+          }
+          break;
+      case "hpf": // for hpf we just invert lpf and then add a delta function
+          for (i=0; i<w; i++) {
+            if (i == Math.round(w/2)) { signal[i] = 1.0 }
+            else {
+              xi = (i - w/2)/7;
+              signal[i] = -Math.sin(xi) / xi / 22; // invert the LPF version & scale
+            }
+          }
+          break;
+      case "custom": // do nothing
+          break;
+      default:
+          console.log("assignSignal: Bad option: ",option)
+    }
+    console.log("signal.length = ",signal.length)
+
+  }
+
+  function setInput() {
+    obj = document.getElementById('signals1');
+    assignSignal(obj.value, signal1);
+    plot(ctx1, signal1, "Input")
+    plotCorr();
+    plotTrans();
+  }
+
+  function setFilter() {
+    obj = document.getElementById('signals2');
+    assignSignal(obj.value, signal2);
+    plot(ctx2, signal2, "Filter / Kernel")
+    plotCorr();
+    plotTrans();
+  }
+
+  // plot a function/signal all at once
+  function plot(ctx, funcVals, name) {
+    ctx.clearRect(0,0,maxX,maxY);  // just clear the whole plot
+
+    // add a horizontal axis in the middle
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, midY);
+    ctx.lineTo(maxX, midY)
+    saveStyle = ctx.strokeStyle;
+    ctx.strokeStyle = "black";
+    ctx.stroke();
+    ctx.closePath();
+    // and label the axis to make it clear that this is time
+    ctx.fillStyle="black";
+    ctx.font = "15px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("time",maxX-30,midY+14)
+
+    // add some dashed grey grid lines as visual guides
+    ctx.beginPath();
+    ctx.moveTo(0, midY/2);     ctx.lineTo(maxX, midY/2);
+    ctx.moveTo(0, 3*midY/2);   ctx.lineTo(maxX, 3*midY/2);
+    ctx.moveTo(maxX/2, 0);     ctx.lineTo(maxX/2, maxY);
+    ctx.moveTo(maxX/4, 0);     ctx.lineTo(maxX/4, maxY);
+    ctx.moveTo(3*maxX/4, 0);   ctx.lineTo(3*maxX/4, maxY);
+    ctx.setLineDash([2, 3]);
+    ctx.strokeStyle = "grey";
+    ctx.stroke();
+    ctx.closePath();
+    ctx.setLineDash([]);
+
+    // and plot the signal
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, (-funcVals[0]/2+0.5)*maxY);
+    for (i = 1; i < funcVals.length; i++) {
+      ctx.lineTo(i, (-funcVals[i]/2+0.5)*maxY);
+    }
+    ctx.strokeStyle = saveStyle;
+    ctx.stroke();
+    ctx.closePath();
+
+    // write the name of the plot
+    ctx.fillStyle="black";
+    ctx.font = "15px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText(name,5,20)
+  }
+
+  function dotProduct(v1, v2) {
+    sum = 0;
+    for (i = 0; i < Math.min(v1.length, v2.length); i++) {
+      sum += v1[i] * v2[i]
+    }
+    return sum
+  }
+
+  function mean(arr) {
+    sum = 0;
+    for (i = 0; i<arr.length; i++) {
+      sum += arr[i];
+    }
+    return sum/arr.length;
+  }
+  function absmax(arr) {
+    max = -9999.0;
+    for (i = 0; i<arr.length; i++) {
+      if (Math.abs(arr[i]) > max) {
+        max = Math.abs(arr[i])
+      }
+    }
+    return max
+  }
+
+
+  function getCorr(s1, s2) {
+    /* This is Pearson's sample correlation.  It ends up being  identical to
+       the dot product of unit vectors thatthat have zero mean:
+       That is to say, it is equivalent to a "cosine similarity." */
+
+    // Actually, let's just assume the mean is zero
+    //mu1 = mean(s1), mu2 = mean(s2);
+    //s1_0 = s1.map(x => x-mu1), s2_0 = s2.map(x => x-mu2);
+    var s1_0 = s1, s2_0 = s2;
+    numer = dotProduct(s1_0, s2_0);
+    denom = Math.sqrt(dotProduct(s1_0, s1_0))*Math.sqrt(dotProduct(s2_0, s2_0));
+    return numer / denom;
+  }
+
+  function plotCorr() {
+    // plot a bar giving a graphical notion of correlation strength
+     const w3 = canvBar.width, maxcorr = 1;//Math.sqrt(canv1.width);
+     ctxBar.clearRect(0,0,w3,maxY);
+     corr = getCorr(signal1, signal2)
+     //console.log("corr = ",corr)
+     yval = Math.round(-corr / maxcorr * maxY/2)
+     if (yval == 0) {
+       yval = Math.sign(corr);
+     }
+     ctxBar.beginPath();
+     if (yval <= 0) {
+      ctxBar.fillStyle="Lime";
+      ctxBar.textBaseline = "top";
+     } else {
+      ctxBar.fillStyle="red";
+      ctxBar.textBaseline = "bottom";
+
+     }
+     ctxBar.fillRect(0, midY, w3, yval);
+     ctxBar.closePath();
+
+     corrPct = (Math.round(corr*100)/100).toString();
+     ctxBar.fillStyle="black";
+     ctxBar.font = "13px Arial";
+     ctxBar.textAlign = "center";
+     ctxBar.fillText(corrPct,w3/2,midY+yval)
+  }
+
+
+  function plotTrans() {
+    /* Plot the 'Cross-Correlation' of signal1 by signal2, i.e. plot the
+       cross-correlation */
+    shifted = Array(signal1.length).fill(0); // storage shifted signal2
+    // for all sorts of shifts
+    half = Math.round(signal2.length/2);
+    for (shift= -half; shift < half; shift++) {
+        for (i = 0; i < signal2.length; i++) { // build a copy of the signal, shifted
+            j = i-shift;
+            if (j < 0) {               // wraparound / periodic boundary
+              j = signal2.length+j;
+            } else if (j >= signal2.length){
+              j = j - signal2.length
+            }
+            shifted[i] = signal2[j]
+        } // shifted signal now ready
+
+        // value of transform at this level of shift is the dot product
+        signalTrans[shift+half] = dotProduct(signal1, shifted); // 70 seems to work well
+    }  // Cross-Correlationed signal now ready
+
+    /* force autoscale if totally off the screen
+    if ((Math.min(...signalTrans) > 1.0) || (Math.max(...signalTrans) < -1.0)) {
+      autoscale = true;
+      document.getElementById("autoscaleBox").setAttribute("checked", "true");
+      console.log("forcing autoscale")
+    }*/
+    if (autoscale) {
+      signalTrans = signalTrans.map(x => x/absmax(signalTrans)*absmax(signal1)); // scale to Input
+      //signalTrans = signalTrans.map(x => x*absmax(signal1));    // scale to Input
+    }
+    plot(ctxTrans, signalTrans, "Output") //"Cross-Correlation")
+  }
+
+  // here's the line drawing part
+  function drawLine(ctx, signal, x1, y1, x2, y2, name) {
+    // fill in the signal1 values
+    var step = Math.sign(x2-x1)
+    for (xi = x1; xi != x2; xi+=step) {
+      yi = y1 + (xi-x1)/(x2-x1)*(y2-y1)
+      if ((xi >= 0) && (xi < w)) {
+          signal[xi] = -2*(yi - midY)/maxY; // map to [-1,1]
+      }
+    }
+    // plot the new part
+    //ctx.clearRect(x1,0,x2-x1,maxY)
+    plot(ctx, signal, name); // just redraw the whole signal
+  }
+</script>
