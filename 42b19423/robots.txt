@@ -1,1 +1,0 @@
-Sitemap: https://drscotthawley.github.io/blog_quarto/sitemap.xml
