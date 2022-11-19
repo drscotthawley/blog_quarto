@@ -10,7 +10,7 @@
 <meta name="dcterms.date" content="2022-11-17">
 <meta name="description" content="Now that we understand contrastive losses and what they’re good for – let’s get rid of them!">
 
-<title>blog_quarto - BYOL - Contrastive Representation Learning without Contrastive Losses</title>
+<title>blog_quarto - BYOL - Contrastive Representation-Learning without Contrastive Losses</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -174,7 +174,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">BYOL - Contrastive Representation Learning without Contrastive Losses</h1>
+      <h1 class="title">BYOL - Contrastive Representation-Learning without Contrastive Losses</h1>
                   <div>
         <div class="description">
           Now that we understand contrastive losses and what they’re good for – let’s get rid of them!
@@ -212,7 +212,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#references" id="toc-references" class="nav-link active" data-scroll-target="#references">References:</a></li>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#sources" id="toc-sources" class="nav-link" data-scroll-target="#sources">Sources</a></li>
   <li><a href="#review" id="toc-review" class="nav-link" data-scroll-target="#review">Review</a></li>
   <li><a href="#strategy-how-were-going-to-do-this" id="toc-strategy-how-were-going-to-do-this" class="nav-link" data-scroll-target="#strategy-how-were-going-to-do-this">Strategy: How we’re going to do this</a></li>
   <li><a href="#how-byol-works" id="toc-how-byol-works" class="nav-link" data-scroll-target="#how-byol-works">How BYOL Works</a>
@@ -238,17 +239,34 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 
 <p><em>“In this work, we thus tasked ourselves to find out whether…negative examples are indispensable to prevent collapsing while preserving high performance.”</em> – the BYOL paper</p>
-<section id="references" class="level2">
-<h2 class="anchored" data-anchor-id="references">References:</h2>
-<p>This post is indebted to * <a href="https://arxiv.org/pdf/2006.07733.pdf">The Bootstrap Your Own Latent (BYOL) paper</a> by Grill et al – you could just stop reading my blog and read that, it’s not a scary paper! (And yes, actually use the arXiv version because it’s got extra figures not in the NeurIPS version I found.)<br>
-* The <a href="https://theaisummer.com/byol/">wonderful tutorial from The AI Summer</a> by Nikolas Adaloglou * The <a href="https://arxiv.org/pdf/2103.06695.pdf">“BYOL-A: BYOL for Audio” paper</a> by Nizumi et al * The <a href="https://github.com/lucidrains/byol-pytorch"><code>byol-pytorch</code></a> code repository by Phil Wang aka lucidrains</p>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>This post is an account of me getting up to speed on <a href="https://arxiv.org/pdf/2006.07733.pdf">Bootstrap Your Own Latent (BYOL)</a>, a method for self-supervised learning (SSL) published by the Meta AI team led by Yann LeCun in 2020. It is not the end-all-be-all of representation learning. While it did outperform earlier methods such as SimCLR, especially on classification tasks, 2020 was a while ago and newer methods have been released by the same group such as 2021’s “<a href="https://arxiv.org/pdf/2103.03230.pdf">Barlow Twins</a>” and “<a href="https://arxiv.org/abs/2105.04906">VicReg</a>”, and 2022’s “<a href="">Masked Siamese ConvNets</a>” and “<a href="https://arxiv.org/pdf/2210.01571.pdf">VICRegL</a>”. In particular, VICReg seems to be better suited than BYOL for non-classification tasks. Even so, BYOL has been on my mind for a while and it has proven a fruitful place to jump back in to the represenation-learning game.</p>
+</section>
+<section id="sources" class="level2">
+<h2 class="anchored" data-anchor-id="sources">Sources</h2>
+<p>This post is indebted to</p>
+<ul>
+<li><a href="https://arxiv.org/pdf/2006.07733.pdf">The Bootstrap Your Own Latent (BYOL) paper</a> by Grill et al – you could just stop reading my blog and read that, it’s not a scary paper! (And yes, actually use the arXiv version because it’s got extra figures not in the NeurIPS version I found.)<br>
+</li>
+<li>The <a href="https://theaisummer.com/byol/">wonderful tutorial from The AI Summer</a> by Nikolas Adaloglou</li>
+<li>The <a href="https://arxiv.org/pdf/2103.06695.pdf">“BYOL-A: BYOL for Audio” paper</a> by Nizumi et al</li>
+<li>The <a href="https://github.com/lucidrains/byol-pytorch"><code>byol-pytorch</code></a> code repository by Phil Wang aka lucidrains</li>
+</ul>
 </section>
 <section id="review" class="level2">
 <h2 class="anchored" data-anchor-id="review">Review</h2>
 <p>Previously, on “Trying to Understand Embeddings, with Scott”, i.e.&nbsp;<a href="https://drscotthawley.github.io/blog/2021/08/01/Live-CL-Demo.html">Part 3 of my blog series</a>, we’d worked out way to think of embeddings, and contrastive losses, and even built a toy model.</p>
 <p>In the toy model there were pairwise losses (boo!) and triplet losses (yay!), and even an “Attract Only” option whereby we got rid of ‘repulsion’ entirely. After the “Attract Only” ran, we would rescale the answers and that rescaling would produce a kind of “repulsion”. In that sense, the “Attract Only” method was one way to “remove the contrastive loss” thing.</p>
-<p>…uh… but as far as I know, nobody does that. The <a href="https://arxiv.org/abs/2002.05709">SimCLR</a> (“sim-clear”) method mentioned a bit in earlier posts and elsewhere is one way of dealing with the problem of finding “challenging” negative examples, by working on a kind of “attraction”, but not as naive as the toy model I made.</p>
-<p>BYOL is another way to simplify ‘contrastive’ learning and avoid hard-negative mining and it seems a bit like “attract only” in that it no longer means <em>explicitly</em> including a respulsive term in the loss function, but BYOL different from SimCLR and not as naive as my own scheme. Instead, BYOL, uses an another network to do some comparisons.</p>
+<p>…uh… but as far as I know, nobody does that. The <a href="https://arxiv.org/abs/2002.05709">SimCLR</a> (apparently pronounced “Sim-Clear”) method mentioned in earlier posts is one way of dealing with the problem of finding “challenging” negative examples, by working on a kind of “attraction”, but not as naive as the toy model I made. With SimCLR you don’t enforce similarities on the representations you’re trying to get (which they call <span class="math inline">\(h\)</span>), rather you map these points via some (nonlinear) “projection” function <span class="math inline">\(g\)</span> (which they call “projection head”) to some other space and minimize distances between points <span class="math inline">\(z\)</span> in that space:</p>
+<img src="https://production-media.paperswithcode.com/methods/Screen_Shot_2020-07-02_at_4.31.34_PM_7zlWDQE.png" width="400px" alt="simclr diagram">
+<center>
+Source: <a href="https://arxiv.org/pdf/2002.05709v3.pdf">SimCLR paper</a>
+</center>
+<p>The reason they add the projection function <span class="math inline">\(g\)</span> and don’t just try to maximize similarity between the <span class="math inline">\(h\)</span> points is because….uh… doing it this way works better in that it frees you of having to mine for hard negatives. That is, earlier methods were already trying to maximize similarity of points <span class="math inline">\(h_i\)</span> and <span class="math inline">\(h_j\)</span> in the representation space, and what SimCLR did worked better than that: As in, there’s a graph in the SimCLR paper where they show the accuracy benefits of using the projection head (blue and gold) vs.&nbsp;not doing so (“None”, in green) and the results are striking:</p>
+<p><img src="https://miro.medium.com/max/1400/1*NBFdzhK_-rFETM3eCr_alg.png" width="500" alt="simclr projection head effects"></p>
+<p>So the “projection head” thing just works. But can it be improved on? Yea. Enter BYOL.</p>
+<p>BYOL is another way to simplify ‘contrastive’ learning and avoid hard-negative mining and it seems a bit like “attract only” in that it no longer means <em>explicitly</em> including a respulsive term in the loss function, but BYOL different from SimCLR and not as naive as my own scheme. Instead, BYOL, uses an another network to do some comparisons. With BYOL, we’ll effectively take the SimCLR picture above and also add one more “prediction” function <span class="math inline">\(q\)</span> to one of the <span class="math inline">\(z\)</span> points, and then maximize similarity between <span class="math inline">\(q(z_i)\)</span> and <span class="math inline">\(z_j\)</span>.</p>
 <p>Recal that the goal of these systems is to get “good”, “semantically meaningful” representations, however we can. If it takes multiple networks to do that, no worries.</p>
 <p>In <a href="https://drscotthawley.github.io/blog/scottergories/2021/06/17/Contrasting-Contrastive-Loss.html">Part 2</a> of this blog series, we looked at Siamese Networks, where two copies of the same network are employed for pairwise contrastive learning. With BYOL however, the two networks have the same architectures but <em>different weights</em>, and this difference helps to force “semantically interesting” embedding choices.</p>
 <blockquote class="blockquote">
