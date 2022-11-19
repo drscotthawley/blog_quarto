@@ -10,7 +10,7 @@
 <meta name="dcterms.date" content="2022-11-17">
 <meta name="description" content="Now that we understand contrastive losses and what they’re good for – let’s get rid of them!">
 
-<title>blog_quarto - BYOL - Contrastive Representation-Learning without Contrastive Losses</title>
+<title>blog_quarto - BYOL: Contrastive Representation-Learning without Contrastive Losses</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -174,7 +174,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
     <div class="quarto-title column-body">
-      <h1 class="title">BYOL - Contrastive Representation-Learning without Contrastive Losses</h1>
+      <h1 class="title">BYOL: Contrastive Representation-Learning without Contrastive Losses</h1>
                   <div>
         <div class="description">
           Now that we understand contrastive losses and what they’re good for – let’s get rid of them!
@@ -229,6 +229,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
   <ul class="collapse">
   <li><a href="#inspecting-our-results" id="toc-inspecting-our-results" class="nav-link" data-scroll-target="#inspecting-our-results">Inspecting Our Results</a></li>
   </ul></li>
+  <li><a href="#stopping-here-for-now" id="toc-stopping-here-for-now" class="nav-link" data-scroll-target="#stopping-here-for-now">Stopping here for now</a></li>
   </ul>
 </nav>
     </div>
@@ -663,10 +664,13 @@ And then SimCLR came along and introduced an additional mapping function akin to
 </div>
 </div>
 <p>Note that our images are 28x28=784 monochrome pixels, so a “representation” via 512 points does not make much of a compression. ….But at this point, you can see the basics of how this works.</p>
-<p>No promises, but I may do a later version of this blog where we write our BYOL code from scratch, and/or use a U-Net or some other architecture, and/or look more closely into BYOL-A, but for now, this seems like a reasonable stopping point. :-)</p>
-
-
 </section>
+</section>
+<section id="stopping-here-for-now" class="level2">
+<h2 class="anchored" data-anchor-id="stopping-here-for-now">Stopping here for now</h2>
+<p>I may do a later version of this blog where we write our BYOL code from scratch, and/or use a U-Net or some other architecture, and/or look more closely into BYOL-A, but for now, this seems like a reasonable stopping point. :-)</p>
+
+
 </section>
 
 </main> <!-- /main -->
